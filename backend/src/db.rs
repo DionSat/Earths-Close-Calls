@@ -45,12 +45,21 @@ impl Store {
     }
 
     pub async fn check_admin(&self, email: String) -> Result<bool, sqlx::Error> {
-        let row = sqlx::query!("SELECT * FROM users WHERE email = $1",)
-            .bind(email)
+        let row = sqlx::query!("SELECT * FROM users WHERE email = $1", 
+            email)
             .fetch_one(&self.conn_pool)
             .await?;
 
         Ok(row.admin)
+    }
+
+    pub async fn check_banned(&self, email: String) -> Result<bool, sqlx::Error> {
+        let row = sqlx::query!("SELECT * FROM users WHERE email = $1",
+            email)
+            .fetch_one(&self.conn_pool)
+            .await?;
+
+        Ok(row.banned)
     }
 
     pub async fn get_user(&self, email: &str) -> Result<User, AppError> {

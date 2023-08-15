@@ -26,6 +26,10 @@ pub async fn root(
     let mut context = Context::new();
 
     let template_name = if let Some(claims_data) = claims {
+        let admin = am_database.check_admin(claims_data.email.clone());
+        if admin {
+            context.insert("admin_logged_in", &true);
+        }
         error!("Setting claims and is_logged_in is TRUE now");
         context.insert("claims", &claims_data);
         context.insert("is_logged_in", &true);
