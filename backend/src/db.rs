@@ -1,10 +1,9 @@
 use axum::Json;
 use serde_json::Value;
-use std::sync::{Arc, Mutex, RwLock};
 
 use chrono::NaiveDate;
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 use tracing::info;
 
 use crate::error::AppError;
@@ -45,8 +44,7 @@ impl Store {
     }
 
     pub async fn check_admin(&self, email: String) -> Result<bool, sqlx::Error> {
-        let row = sqlx::query!("SELECT * FROM users WHERE email = $1", 
-            email)
+        let row = sqlx::query!("SELECT * FROM users WHERE email = $1", email)
             .fetch_one(&self.conn_pool)
             .await?;
 
@@ -54,12 +52,35 @@ impl Store {
     }
 
     pub async fn check_banned(&self, email: String) -> Result<bool, sqlx::Error> {
-        let row = sqlx::query!("SELECT * FROM users WHERE email = $1",
-            email)
+        let row = sqlx::query!("SELECT * FROM users WHERE email = $1", email)
             .fetch_one(&self.conn_pool)
             .await?;
 
         Ok(row.banned)
+    }
+
+    pub async fn ban_user(&self, email: String) -> Result<(), sqlx::Error> {
+        sqlx::query!("UPDATE users SET banned = true WHERE email = $1", email)
+            .execute(&self.conn_pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_all_users(&self) -> Result<Vec<User>, AppError> {
+        let rows = sqlx::query!("SELECT email, password FROM users",)
+            .fetch_all(&self.conn_pool)
+            .await?;
+
+        let users: Vec<_> = rows
+            .into_iter()
+            .map(|row| User {
+                email: row.email,
+                password: row.password,
+            })
+            .collect();
+
+        Ok(users)
     }
 
     pub async fn get_user(&self, email: &str) -> Result<User, AppError> {
@@ -80,6 +101,25 @@ impl Store {
         let result = sqlx::query("INSERT INTO users(email, password) values ($1, $2)")
             .bind(&user.email)
             .bind(&user.password)
+            .execute(&self.conn_pool)
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+
+        if result.rows_affected() < 1 {
+            Err(AppError::InternalServerError)
+        } else {
+            Ok(Json(
+                serde_json::json!({"message": "User created successfully!"}),
+            ))
+        }
+    }
+
+    pub async fn create_admin(&self, user: UserSignup) -> Result<Json<Value>, AppError> {
+        // TODO: Encrypt/bcrypt user passwords
+        let result = sqlx::query("INSERT INTO users(email, password, admin) values ($1, $2, $3)")
+            .bind(&user.email)
+            .bind(&user.password)
+            .bind(true)
             .execute(&self.conn_pool)
             .await
             .map_err(|_| AppError::InternalServerError)?;

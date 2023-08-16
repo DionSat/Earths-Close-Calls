@@ -4,13 +4,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Near Earth Object</title>
+    <title>Near Earth Objects by Date</title>
 </head>
 
 <body>
     <!--show register form-->
-    <h2>Near Earth Object</h2>
+    <h1>Near Earth Objects</h1>
 
+    <h1> We're always unaware of how dangerous space is and how much danger Earth can be in. </h1>
+
+    <div>
+        {% if is_logged_in %}
+        {% if results %}
+        {% for neo in results %}
+        <p> Here is the disignation of the object that flew near Earth {{neo.designation}} </p>
+        <p> Here is its NASA API ID:{{neo.api_id}}</p>
+        <p> It had a diameter of a minimum of {{neo.diameter_min}} miles </p>
+        <p> It had a diameter of a maximum of {{neo.diameter_max}} miles </p>
+        <p> Could this cause some serious damage to us: {{neo.hazardous_asteroid}} </p>
+        <p> It showed up at {{neo.approach_date}} </p>
+        <p> It was going about {{neo.velocity}} mph </p>
+        <p> It missed us by about {{neo.miss_distance}} miles </p>
+        <p> It was orbiting {{neo.orbiting_body}} at the time </p>
+        <br><br>
+        {% endfor %}
+        <br><br>
+        <ul>
+            <li><a href="/">Home</a></li>
+        </ul>
+        {% endif %}
+        {% else %}
+        <br><br>
+        <ul>
+            <li><a href="/">Home</a></li>
+        </ul>
+        {% endif %}
+    </div>
 </body>
 
 </html>

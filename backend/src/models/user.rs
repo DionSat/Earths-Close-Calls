@@ -4,7 +4,6 @@ use cookie::Cookie;
 use http::request::Parts;
 use jsonwebtoken::{decode, DecodingKey, EncodingKey, Validation};
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
 use std::convert::Infallible;
 
 use crate::error::AppError;
@@ -34,6 +33,11 @@ pub struct Claims {
     pub id: i32,
     pub email: String,
     pub exp: u64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetUserByEmail {
+    pub email: String,
 }
 
 #[async_trait]

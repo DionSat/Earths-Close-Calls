@@ -1,0 +1,47 @@
+<!-- template for page user sees if logged in -->
+
+<!DOCTYPE html>
+<html lang="en">
+<!--links to CSS and JS if we had them, go in the header-->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width-device-width, initial-scale-1.0">
+    <title>Admin</title>
+</head>
+
+<body>
+
+    <h1> Admin Page </h1>
+    <div>
+        {% if admin_logged_in %}
+        {% for package in page_packages %}
+        <p> {{package.email}}</p>
+        <p> {{package.password}} </p>
+        </form>
+        {% endfor %}
+        <br><br>
+        <ul>
+            <li>
+                <p>Ban User</p>>
+            </li>
+        </ul>
+        <form action="/ban" method="post">
+            <label for="email">User Email:</label>
+            <input type="text" id="email" name="email">
+            <input type="submit" value="submit">
+        </form>
+        <br><br>
+        <ul>
+            <li><a href="/">Home</a></li>
+        </ul>
+        {% else %}
+        <ul>
+            <li><a href="/">Home</a></li>
+        </ul>
+        {% endif %}
+    </div>
+
+</body>
+
+</html>

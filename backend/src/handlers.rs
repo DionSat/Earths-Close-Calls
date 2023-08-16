@@ -6,15 +6,15 @@ use http::header::{LOCATION, SET_COOKIE};
 use http::{HeaderValue, StatusCode};
 use hyper::Body;
 use jsonwebtoken::Header;
-use serde_json::{json, Value};
+use serde_json::Value;
 use tera::Context;
 use tracing::error;
 
 use crate::db::Store;
 use crate::error::AppError;
 use crate::get_timestamp_after_8_hours;
-use crate::models::neo::{CreateDateRange, CreateNeo, Neo, NeoId};
-use crate::models::user::{Claims, OptionalClaims, User, UserSignup, KEYS};
+use crate::models::neo::{CreateDateRange, CreateNeo, GetNeoById, Neo, NeoId};
+use crate::models::user::{Claims, GetUserByEmail, OptionalClaims, User, UserSignup, KEYS};
 
 use crate::template::TEMPLATES;
 
@@ -26,18 +26,35 @@ pub async fn root(
     let mut context = Context::new();
 
     let template_name = if let Some(claims_data) = claims {
-        let admin = am_database.check_admin(claims_data.email.clone());
-        if admin {
-            context.insert("admin_logged_in", &true);
-        }
         error!("Setting claims and is_logged_in is TRUE now");
         context.insert("claims", &claims_data);
         context.insert("is_logged_in", &true);
-        // Get all the page data
-        let page_packages = am_database.get_all_neo_pages().await?;
-        context.insert("page_packages", &page_packages);
+        let admin = am_database.check_admin(claims_data.email.clone()).await?;
+        let banned = am_database.check_banned(claims_data.email.clone()).await?;
+        if banned {
+            error!("is_banned is TRUE now");
+            error!("is_logged_in is FALSE now");
+            context.insert("is_banned", &true);
+            context.insert("is_logged_in", &false);
 
-        "pages.html" // Use the new template when logged in
+            "index.html"
+        } else {
+            if admin {
+                error!("admin_logged_in is TRUE now");
+                context.insert("admin_logged_in", &true);
+                context.insert("is_banned", &false);
+                // Get all the page data
+                let page_packages = am_database.get_all_neo_pages().await?;
+                context.insert("page_packages", &page_packages);
+
+                "index.html"
+            } else {
+                error!("admin_logged_in is FALSE now");
+                context.insert("is_banned", &false);
+
+                "index.html" // Use the index when not admin
+            }
+        }
     } else {
         // Handle the case where the user isn't logged in
         error!("is_logged_in is FALSE now");
@@ -55,26 +72,148 @@ pub async fn root(
 }
 
 #[allow(dead_code)]
-pub async fn register_page(
+pub async fn register_page() -> Result<Html<String>, AppError> {
+    let context = Context::new();
+
+    let template_name = { "register.html" };
+
+    let rendered = TEMPLATES
+        .render(template_name, &context)
+        .unwrap_or_else(|err| {
+            error!("Template rendering error: {}", err);
+            panic!()
+        });
+    Ok(Html(rendered))
+}
+
+#[allow(dead_code)]
+pub async fn admin_page(
     State(am_database): State<Store>,
     OptionalClaims(claims): OptionalClaims,
 ) -> Result<Html<String>, AppError> {
     let mut context = Context::new();
-
     let template_name = if let Some(claims_data) = claims {
         error!("Setting claims and is_logged_in is TRUE now");
         context.insert("claims", &claims_data);
         context.insert("is_logged_in", &true);
-        // Get all the page data
-        let page_packages = am_database.get_all_neo_pages().await?;
-        context.insert("page_packages", &page_packages);
+        let admin = am_database.check_admin(claims_data.email.clone()).await?;
+        let banned = am_database.check_banned(claims_data.email.clone()).await?;
+        if banned {
+            error!("is_banned is TRUE now");
+            error!("is_logged_in is FALSE now");
+            context.insert("is_banned", &true);
+            context.insert("is_logged_in", &false);
 
-        "pages.html" // Use the new template when logged in
+            "index.html"
+        } else {
+            if admin {
+                error!("admin_logged_in is TRUE now");
+                context.insert("admin_logged_in", &true);
+                context.insert("is_banned", &false);
+                // Get all the page data
+                let page_packages = am_database.get_all_users().await?;
+                context.insert("page_packages", &page_packages);
+
+                "admin.html"
+            } else {
+                error!("admin_logged_in is FALSE now");
+                context.insert("is_banned", &false);
+                "index.html" // Use the index when not admin
+            }
+        }
     } else {
-        // Handle the case where the user isn't logged in
-        error!("is_logged_in is FALSE now");
+        // Handle the case where the user isn't admin
+        error!("Setting claims and is_logged_in is FALSE now");
+        error!("admin_logged_in is FALSE now");
         context.insert("is_logged_in", &false);
-        "register.html" // Use the original template when not logged in
+        context.insert("admin_logged_in", &true);
+        "index.html" // Use the original template when not logged in
+    };
+
+    let rendered = TEMPLATES
+        .render(template_name, &context)
+        .unwrap_or_else(|err| {
+            error!("Template rendering error: {}", err);
+            panic!()
+        });
+    Ok(Html(rendered))
+}
+
+#[allow(dead_code)]
+pub async fn neo_date_page(
+    State(mut am_database): State<Store>,
+    OptionalClaims(claims): OptionalClaims,
+    dates: Query<CreateDateRange>,
+) -> Result<Html<String>, AppError> {
+    let mut context = Context::new();
+    let template_name = if let Some(claims_data) = claims {
+        error!("Setting claims and is_logged_in is TRUE now");
+        context.insert("claims", &claims_data);
+        context.insert("is_logged_in", &true);
+        let banned = am_database.check_banned(claims_data.email.clone()).await?;
+        if banned {
+            error!("is_banned is TRUE now");
+            error!("is_logged_in is FALSE now");
+            context.insert("is_banned", &true);
+            context.insert("is_logged_in", &false);
+
+            "index.html"
+        } else {
+            let results = am_database
+                .get_neo_by_date(dates.0.begin_date, dates.0.end_date)
+                .await?;
+            context.insert("results", &results);
+            context.insert("is_banned", &false);
+            "neo_date.html"
+        }
+    } else {
+        // Handle the case where the user isn't admin
+        error!("Setting claims and is_logged_in is FALSE now");
+        error!("admin_logged_in is FALSE now");
+        context.insert("is_logged_in", &false);
+        "index.html" // Use the original template when not logged in
+    };
+
+    let rendered = TEMPLATES
+        .render(template_name, &context)
+        .unwrap_or_else(|err| {
+            error!("Template rendering error: {}", err);
+            panic!()
+        });
+    Ok(Html(rendered))
+}
+
+#[allow(dead_code)]
+pub async fn neo_id_page(
+    State(mut am_database): State<Store>,
+    OptionalClaims(claims): OptionalClaims,
+    neo_id: Query<GetNeoById>,
+) -> Result<Html<String>, AppError> {
+    let mut context = Context::new();
+    let template_name = if let Some(claims_data) = claims {
+        error!("Setting claims and is_logged_in is TRUE now");
+        context.insert("claims", &claims_data);
+        context.insert("is_logged_in", &true);
+        let banned = am_database.check_banned(claims_data.email.clone()).await?;
+        if banned {
+            error!("is_banned is TRUE now");
+            error!("is_logged_in is FALSE now");
+            context.insert("is_banned", &true);
+            context.insert("is_logged_in", &false);
+
+            "index.html"
+        } else {
+            let results = am_database.get_neo_by_id(NeoId(neo_id.0.neo_id)).await?;
+            context.insert("results", &results);
+            context.insert("is_banned", &false);
+            "neo.html"
+        }
+    } else {
+        // Handle the case where the user isn't admin
+        error!("Setting claims and is_logged_in is FALSE now");
+        error!("admin_logged_in is FALSE now");
+        context.insert("is_logged_in", &false);
+        "index.html" // Use the original template when not logged in
     };
 
     let rendered = TEMPLATES
@@ -129,6 +268,49 @@ pub async fn register(
     Ok(new_user)
 }
 
+pub async fn register_admin(
+    State(database): State<Store>,
+    Form(mut credentials): Form<UserSignup>,
+) -> Result<Json<Value>, AppError> {
+    // We should also check to validate other things at some point like email address being in right format
+
+    if credentials.email.is_empty() || credentials.password.is_empty() {
+        return Err(AppError::MissingCredentials);
+    }
+
+    if credentials.password != credentials.confirm_password {
+        return Err(AppError::MissingCredentials);
+    }
+
+    // Check to see if there is already a user in the database with the given email address
+    let existing_user = database.get_user(&credentials.email).await;
+
+    if let Ok(_) = existing_user {
+        return Err(AppError::UserAlreadyExists);
+    }
+
+    // Here we're assured that our credentials are valid and the user doesn't already exist
+    // hash their password
+    let hash_config = Config::default();
+    let salt = std::env::var("SALT").expect("Missing SALT");
+    let hashed_password = match argon2::hash_encoded(
+        credentials.password.as_bytes(),
+        // If you'd like unique salts per-user, simply pass &[] and argon will generate them for you
+        salt.as_bytes(),
+        &hash_config,
+    ) {
+        Ok(result) => result,
+        Err(_) => {
+            return Err(AppError::Any(anyhow::anyhow!("Password hashing failed")));
+        }
+    };
+
+    credentials.password = hashed_password;
+
+    let new_user = database.create_admin(credentials).await?;
+    Ok(new_user)
+}
+
 pub async fn login(
     State(database): State<Store>,
     Form(creds): Form<User>,
@@ -180,6 +362,14 @@ pub async fn login(
     Ok(response)
 }
 
+pub async fn ban_user(
+    State(am_database): State<Store>,
+    Form(user): Form<GetUserByEmail>,
+) -> Result<(), AppError> {
+    am_database.ban_user(user.email).await?;
+    Ok(())
+}
+
 pub async fn protected(claims: Claims) -> Result<String, AppError> {
     Ok(format!(
         "Welcome to the PROTECTED area :) \n Your claim data is: {}",
@@ -224,10 +414,10 @@ pub async fn get_neo_by_id(
 
 pub async fn get_neo_by_date(
     State(mut am_database): State<Store>,
-    Json(neo): Json<CreateDateRange>,
+    Json(dates): Json<CreateDateRange>,
 ) -> Result<Json<Vec<Neo>>, AppError> {
-    let neo = am_database
-        .get_neo_by_date(neo.begin_date, neo.end_date)
+    let neos = am_database
+        .get_neo_by_date(dates.begin_date, dates.end_date)
         .await?;
-    Ok(Json(neo))
+    Ok(Json(neos))
 }

@@ -126,7 +126,7 @@ pub struct DateRange {
     pub end_date: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CreateDateRange {
     pub begin_date: String,
     pub end_date: String,

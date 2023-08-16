@@ -67,11 +67,6 @@ async fn main() -> anyhow::Result<()> {
     // println!("{}", body);
     let v: Value = serde_json::from_str(&body)?;
     println!("{:?}", v);
-    // for neos in v["near_earth_objects"].as_object().unwrap() {
-    //     for neo in neos.1.as_array().unwrap() {
-    //         println!("{:?}", neo["close_approach_data"][0]);
-    //     }
-    // }
 
     Ok(())
 }

@@ -8,19 +8,54 @@
 </head>
 
 <body>
+    <script>
+        let form = document.getElementById("loginform");
+        function handleForm(event) { event.preventDefault(); }
+        form.addEventListener('submit', handleForm);
+    </script>
 
+    {% if is_banned %}
+    <h1>You are banned</h1>
+    {% else %}
     {% if is_logged_in %}
+    {% if admin_logged_in %}
     <!--show dashboard-->
     <h2>Dashboard</h2>
     <ul>
-        <li><a href="/neos">View All Questions</a></li>
+        <li>
+            <p>View NEO by Date Range</p>
+        </li>
+        <form action="/neo/date" method="get">
+            <label for="Begin Date">Begin Date:</label>
+            <input type="text" id="begin_date" name="begin_date">
+            <label for="End Date">End Date:</label>
+            <input type="text" id="end_date" name="end_date">
+            <input type="submit" value="submit">
+        </form>
+        <li>
+            <p>View NEO by ID</p>
+        </li>
+        <form action="/neo/id" method="get">
+            <label for="Near Earth Object ID">ID:</label>
+            <input type="text" id="neo_id" name="neo_id">
+            <input type="submit" value="submit">
+        </form>
+        <li><a href="/admin">Admin Page</a></li>
     </ul>
+    {% else %}
+    <!--show dashboard-->
+    <h2>Dashboard</h2>
+    <ul>
+        <li><a href="/neo/id/">View NEO by ID</a></li>
+        <li><a href="/neo/date/">View NEO by ID</a></li>
+    </ul>
+    {% endif %}
 
     {% else %}
     <!--show login form-->
     <h2>Login</h2>
 
-    <form action="/login" method="post">
+    <form action="/login" method="post" id="loginform">
         <label for="email">Email:</label>
         <input type="text" id="email" name="email">
         <label for="password">Password:</label>
@@ -32,6 +67,7 @@
         <li><a href="/register">Register User</a></li>
     </ul>
 
+    {% endif %}
     {% endif %}
 
 </body>
