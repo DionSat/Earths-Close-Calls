@@ -9,7 +9,9 @@ Data-set: All the data is from the NASA JPL Asteroid team (http://neo.jpl.nasa.g
 
 ## How to Run
 Make sure you have docker installed
+
 **Windows**
+
 In the ```docker-compose.yml``` leave the 
 
 ```extra_hosts: - host.docker.internal:host-gateway```
